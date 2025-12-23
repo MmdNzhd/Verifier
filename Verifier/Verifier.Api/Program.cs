@@ -1,4 +1,3 @@
-// Test comment - development branch
 using Microsoft.EntityFrameworkCore;
 using Verifier.Application.Users;
 using Verifier.Infrastructure.Persistence;
