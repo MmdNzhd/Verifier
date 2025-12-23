@@ -1,0 +1,106 @@
+﻿name: Gemini AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  gemini-review:
+    name: Gemini Code Review
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files: |
+            **/*.cs
+            **/*.csproj
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install google-generativeai requests
+      
+      - name: Run Gemini Code Review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PYTHON_EOF'
+          import os
+          import google.generativeai as genai
+          import requests
+          import json
+
+          genai.configure(api_key=os.environ['GEMINI_API_KEY'])
+          model = genai.GenerativeModel('gemini-1.5-flash')
+
+          github_token = os.environ['GITHUB_TOKEN']
+          repo = os.environ['GITHUB_REPOSITORY']
+          pr_number = os.environ['GITHUB_REF'].split('/')[2]
+          
+          headers = {
+              'Authorization': f'token {github_token}',
+              'Accept': 'application/vnd.github.v3.diff'
+          }
+          
+          diff_url = f'https://api.github.com/repos/{repo}/pulls/{pr_number}'
+          response = requests.get(diff_url, headers=headers)
+          diff = response.text
+
+          prompt = f"""You are an expert code reviewer for .NET/C# applications.
+          Review the following code changes and provide:
+          
+          1. **Security Issues**: Any potential security vulnerabilities
+          2. **Code Quality**: Best practices, SOLID principles, clean code
+          3. **Performance**: Potential performance improvements
+          4. **Bugs**: Potential bugs or logical errors
+          5. **Suggestions**: Specific improvement recommendations
+          
+          Be concise and actionable. Focus on important issues only.
+          
+          Code Diff:
+          ```diff
+          {diff[:8000]}
+          ```
+          
+          Provide the review in markdown format."""
+
+          try:
+              review = model.generate_content(prompt)
+              review_text = review.text
+              
+              comment_url = f'https://api.github.com/repos/{repo}/issues/{pr_number}/comments'
+              comment_data = {
+                  'body': f"## 🤖 Gemini AI Code Review\n\n{review_text}\n\n---\n*Automated review by Gemini AI*"
+              }
+              
+              headers['Accept'] = 'application/vnd.github.v3+json'
+              headers['Content-Type'] = 'application/json'
+              
+              post_response = requests.post(comment_url, headers=headers, data=json.dumps(comment_data))
+              
+              if post_response.status_code == 201:
+                  print("✅ Gemini review posted successfully!")
+              else:
+                  print(f"❌ Failed to post review: {post_response.status_code}")
+                  
+          except Exception as e:
+              print(f"❌ Error: {str(e)}")
+              exit(1)
+          PYTHON_EOF
