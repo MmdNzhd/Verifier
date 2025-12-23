@@ -15,5 +15,7 @@ public class InMemoryUserRepository : IUserRepository
     public IReadOnlyList<User> GetAll()
     {
         return _users;
+
+        
     }
 }
