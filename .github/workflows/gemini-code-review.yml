@@ -57,38 +57,38 @@ jobs:
           PR_AUTHOR: ${{ steps.pr-info.outputs.pr_author }}
         run: |
           python3 << 'PYTHONEOF'
-import os
-import sys
-import json
-import google.generativeai as genai
-import requests
-from datetime import datetime
+          import os
+          import sys
+          import json
+          import google.generativeai as genai
+          import requests
+          from datetime import datetime
 
-# Configure Gemini - USE GEMINI 2.5 PRO
-genai.configure(api_key=os.environ['GEMINI_API_KEY'])
-model = genai.GenerativeModel('gemini-2.0-flash-lite')
+          # Configure Gemini API
+          genai.configure(api_key=os.environ['GEMINI_API_KEY'])
+          model = genai.GenerativeModel('gemini-2.0-flash-lite')
 
-github_token = os.environ['GITHUB_TOKEN']
-repo = os.environ['GITHUB_REPOSITORY']
-pr_number = os.environ['PR_NUMBER']
-pr_title = os.environ['PR_TITLE']
-pr_author = os.environ['PR_AUTHOR']
+          github_token = os.environ['GITHUB_TOKEN']
+          repo = os.environ['GITHUB_REPOSITORY']
+          pr_number = os.environ['PR_NUMBER']
+          pr_title = os.environ['PR_TITLE']
+          pr_author = os.environ['PR_AUTHOR']
 
-headers = {
-    'Authorization': f'token {github_token}',
-    'Accept': 'application/vnd.github.v3.diff'
-}
+          headers = {
+              'Authorization': f'token {github_token}',
+              'Accept': 'application/vnd.github.v3.diff'
+          }
 
-def get_diff():
-    diff_url = f'https://api.github.com/repos/{repo}/pulls/{pr_number}'
-    response = requests.get(diff_url, headers=headers, timeout=30)
-    if response.status_code != 200:
-        print(f"Failed to fetch diff: {response.status_code}")
-        return None
-    return response.text
+          def get_diff():
+              diff_url = f'https://api.github.com/repos/{repo}/pulls/{pr_number}'
+              response = requests.get(diff_url, headers=headers, timeout=30)
+              if response.status_code != 200:
+                  print(f"Failed to fetch diff: {response.status_code}")
+                  return None
+              return response.text
 
-def create_prompt(chunk_num, total_chunks, diff_content):
-    prompt = f"""You are a senior .NET Core architect and security expert.
+          def create_prompt(chunk_num, total_chunks, diff_content):
+              return f"""You are a senior .NET Core architect and security expert.
 
 CONTEXT:
 - Repository: {repo}
@@ -98,189 +98,72 @@ CONTEXT:
 - This is chunk {chunk_num} of {total_chunks}
 
 REVIEW SCOPE:
-Examine every line of code with extreme attention to detail:
-- Security vulnerabilities (OWASP Top 10)
+- Security vulnerabilities
 - Performance issues
 - Code quality and best practices
 - Bugs and logical errors
 
-DETAILED CHECKLIST:
-
-## SECURITY VULNERABILITIES
-
-### Injection Attacks
-- SQL Injection: Verify parameterized queries ONLY
-- Linq injection: User input sanitization
-- Command injection: Process.Start with user input
-
-### Broken Authentication
-- Password storage: PBKDF2, bcrypt, Argon2 (NOT MD5, SHA1)
-- Session management: SessionID regeneration
-- Token security: JWT validation
-
-### Broken Access Control
-- [Authorize] attributes on ALL protected endpoints
-- IDOR protection: users cannot access others resources
-
-### Security Misconfiguration
-- No hardcoded passwords, API keys
-- CORS: explicit origin whitelisting
-- Security headers: X-Content-Type-Options, X-Frame-Options
-
-### Cross-Site Scripting
-- Output encoding: @Html.Raw() with untrusted input
-- Cookie security: HttpOnly, Secure, SameSite
-
-### Insecure Deserialization
-- BinaryFormatter: NOT used (deprecated)
-- TypeNameHandling.None for JSON
-
-## PERFORMANCE
-
-### Asynchronous Programming
-- async/await for I/O operations
-- NO .Result, .Wait(), .GetAwaiter().GetResult()
-- CancellationToken propagation
-
-### Database Performance
-- N+1 queries: lazy loading issues
-- Include() for navigation properties
-- AsNoTracking() for read-only
-- Pagination for large datasets
-
-### Resource Management
-- IDisposable pattern: proper disposal
-- DbContext lifetime: Scoped, not Singleton
-- HttpClientFactory usage
-
-## CODE QUALITY
-
-### Exception Handling
-- Specific exception types caught (NOT catch(Exception))
-- Meaningful exception messages
-
-### Dependency Injection
-- Constructor injection preferred
-- DI lifetime matching
-
-### API Design
-- RESTful naming conventions
-- HTTP status codes correctness
-- ModelState.IsValid checks
-
-### Input Validation
-- Data Annotations: [Required], [MaxLength], [Range]
-- Server-side validation only
-
-### Configuration
-- appsettings.json structure
-- Environment-specific settings
-- Azure Key Vault for secrets
-
-## OUTPUT FORMAT
-
-### Critical (Must Fix Before Merge)
-**File**: path/to/file.cs
-**Line**: 123
-**Issue**: Clear description
-**Code**:
-```csharp
-// BEFORE
-[problematic code]
-
-// AFTER
-[suggested fix]
-```
-**Reason**: Why critical
-
-### High (Should Fix)
-**File**: path/to/file.cs
-**Line**: 123
-**Issue**: Description
-
-### Medium (Consider Fixing)
-**File**: path/to/file.cs
-**Line**: 123
-**Issue**: Description
-**Suggested Fix**: Brief
-
-### Positive Findings
-Good practices observed
-
-### Summary
-- Total issues: X
-- Critical: Y
-- High: Z
-
 Code Diff (chunk {chunk_num} of {total_chunks}):
-```{diff}
-{diff_content}
-```
+```{diff_content}
 """
-    return prompt
 
-def review_chunk(chunk_num, total_chunks, chunk):
-    prompt = create_prompt(chunk_num, total_chunks, chunk)
-    generation_config = {
-        "temperature": 0.1,
-        "top_p": 0.9,
-        "top_k": 64,
-        "max_output_tokens": 8192
-    }
-    try:
-        review = model.generate_content(prompt, generation_config=generation_config)
-        if review.text:
-            return f"## Section {chunk_num}/{total_chunks}\n\n{review.text}"
-        return f"## Section {chunk_num}/{total_chunks}\n\n*No issues found*"
-    except Exception as e:
-        return f"## Section {chunk_num}/{total_chunks}\n\n**Error**: {str(e)}"
+          def review_chunk(chunk_num, total_chunks, chunk):
+              prompt = create_prompt(chunk_num, total_chunks, chunk)
+              generation_config = {
+                  "temperature": 0.1,
+                  "top_p": 0.9,
+                  "top_k": 64,
+                  "max_output_tokens": 8192
+              }
+              try:
+                  review = model.generate_content(prompt, generation_config=generation_config)
+                  if review.text:
+                      return f"## Section {chunk_num}/{total_chunks}\n\n{review.text}"
+                  return f"## Section {chunk_num}/{total_chunks}\n\n*No issues found*"
+              except Exception as e:
+                  return f"## Section {chunk_num}/{total_chunks}\n\n**Error**: {str(e)}"
 
-def post_review(review_body):
-    review_url = f'https://api.github.com/repos/{repo}/pulls/{pr_number}/reviews'
-    review_data = {'body': review_body, 'event': 'COMMENT'}
-    review_headers = {
-        'Authorization': f'token {github_token}',
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
-    }
-    response = requests.post(review_url, headers=review_headers, data=json.dumps(review_data), timeout=60)
-    if response.status_code == 200:
-        print("Gemini review posted successfully!")
-        return True
-    else:
-        print(f"Failed to post review: {response.status_code}")
-        return False
+          def post_review(review_body):
+              review_url = f'https://api.github.com/repos/{repo}/pulls/{pr_number}/reviews'
+              review_data = {'body': review_body, 'event': 'COMMENT'}
+              review_headers = {
+                  'Authorization': f'token {github_token}',
+                  'Accept': 'application/vnd.github.v3+json',
+                  'Content-Type': 'application/json'
+              }
+              response = requests.post(review_url, headers=review_headers, data=json.dumps(review_data), timeout=60)
+              if response.status_code in [200, 201]:
+                  print("Gemini review posted successfully!")
+                  return True
+              else:
+                  print(f"Failed to post review: {response.status_code}")
+                  return False
 
-def main():
-    print(f"Starting Gemini Code Review for PR #{pr_number}")
-    diff_content = get_diff()
-    if diff_content is None:
-        sys.exit(1)
-    if not diff_content.strip():
-        print("No changes to review")
-        sys.exit(0)
-    
-    MAX_CHUNK_SIZE = 450000
-    chunks = [diff_content[i:i+MAX_CHUNK_SIZE] for i in range(0, len(diff_content), MAX_CHUNK_SIZE)]
-    print(f"Processing {len(chunks)} chunk(s)...")
-    
-    all_reviews = []
-    for idx, chunk in enumerate(chunks):
-        chunk_num = idx + 1
-        total_chunks = len(chunks)
-        print(f"Reviewing chunk {chunk_num} of {total_chunks}...")
-        all_reviews.append(review_chunk(chunk_num, total_chunks, chunk))
-    
-    final_review = f"## Gemini AI Code Review\n\n**PR**: #{pr_number} - {pr_title}\n**Author**: {pr_author}\n**Date**: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}\n\n---\n\n" + "\n\n---\n\n".join(all_reviews) + "\n\n---\n\n*Automated by Gemini 2.5 Pro*"
-    
-    if post_review(final_review):
-        sys.exit(0)
-    else:
-        sys.exit(1)
+          def main():
+              print(f"Starting Gemini Code Review for PR #{pr_number}")
+              diff_content = get_diff()
+              if diff_content is None or not diff_content.strip():
+                  print("No changes to review")
+                  sys.exit(0)
 
-if __name__ == "__main__":
-    main()
-PYTHONEOF
+              MAX_CHUNK_SIZE = 450000
+              chunks = [diff_content[i:i+MAX_CHUNK_SIZE] for i in range(0, len(diff_content), MAX_CHUNK_SIZE)]
+              print(f"Processing {len(chunks)} chunk(s)...")
+
+              all_reviews = []
+              for idx, chunk in enumerate(chunks):
+                  all_reviews.append(review_chunk(idx+1, len(chunks), chunk))
+
+              final_review = f"## Gemini AI Code Review\n\n**PR**: #{pr_number} - {pr_title}\n**Author**: {pr_author}\n**Date**: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n\n---\n\n" + "\n\n---\n\n".join(all_reviews) + "\n\n---\n\n*Automated by Gemini 2.5 Pro*"
+
+              if post_review(final_review):
+                  sys.exit(0)
+              else:
+                  sys.exit(1)
+
+          if __name__ == "__main__":
+              main()
+          PYTHONEOF
 
       - name: No changes to review
         if: steps.changed-files.outputs.any_changed != 'true'
