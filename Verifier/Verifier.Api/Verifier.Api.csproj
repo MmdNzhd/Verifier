@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Verifier.Application\Verifier.Application.csproj" />
     <ProjectReference Include="..\Verifier.Contracts\Verifier.Contracts.csproj" />
+    <ProjectReference Include="..\Verifier.Domain\Verifier.Domain.csproj" />
     <ProjectReference Include="..\Verifier.Infrastructure\Verifier.Infrastructure.csproj" />
   </ItemGroup>
 

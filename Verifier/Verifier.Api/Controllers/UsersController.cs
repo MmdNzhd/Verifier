@@ -36,5 +36,26 @@ public IActionResult Create(CreateUserRequest request)
     {
         return Ok(_userService.GetAll());
     }
+
+    [HttpGet("{id}")]
+    public IActionResult GetById(Guid id)
+    {
+        var user = _userService.GetById(id);
+        
+        if (user == null)
+        {
+            return NotFound();
+        }
+
+        var response = new GetUserResponse
+        {
+            UserId = user.Id,
+            FullName = user.FullName ?? string.Empty,
+            PhoneNumber = user.PhoneNumber ?? string.Empty,
+            CreatedAt = user.CreatedAt
+        };
+
+        return Ok(response);
+    }
 }
 
