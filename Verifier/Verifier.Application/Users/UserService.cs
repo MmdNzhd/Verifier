@@ -23,4 +23,9 @@ public class UserService
     {
         return _repository.GetAll();
     }
+
+    public User? GetById(Guid id)
+    {
+        return _repository.GetById(id);
+    }
 }

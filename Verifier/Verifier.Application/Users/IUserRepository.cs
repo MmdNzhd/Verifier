@@ -6,4 +6,5 @@ public interface IUserRepository
 {
     void Add(User user);
     IReadOnlyList<User> GetAll();
+    User? GetById(Guid id);
 }

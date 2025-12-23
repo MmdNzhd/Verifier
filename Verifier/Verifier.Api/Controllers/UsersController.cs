@@ -6,6 +6,9 @@ namespace Verifier.Api.Controllers;
 
 [ApiController]
 [Route("api/users")]
+// TODO: Add input validation for user creation
+// TODO: Implement proper error handling
+// FIXME: This controller needs authentication/authorization
 public class UsersController : ControllerBase
 {
     private readonly UserService _userService;
@@ -33,4 +36,26 @@ public IActionResult Create(CreateUserRequest request)
     {
         return Ok(_userService.GetAll());
     }
+
+    [HttpGet("{id}")]
+    public IActionResult GetById(Guid id)
+    {
+        var user = _userService.GetById(id);
+        
+        if (user == null)
+        {
+            return NotFound();
+        }
+
+        var response = new GetUserResponse
+        {
+            UserId = user.Id,
+            FullName = user.FullName ?? string.Empty,
+            PhoneNumber = user.PhoneNumber ?? string.Empty,
+            CreatedAt = user.CreatedAt
+        };
+
+        return Ok(response);
+    }
 }
+

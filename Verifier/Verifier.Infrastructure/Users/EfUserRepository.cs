@@ -23,4 +23,9 @@ public class EfUserRepository : IUserRepository
     {
         return _context.Users.ToList();
     }
+
+    public User? GetById(Guid id)
+    {
+        return _context.Users.FirstOrDefault(u => u.Id == id);
+    }
 }
