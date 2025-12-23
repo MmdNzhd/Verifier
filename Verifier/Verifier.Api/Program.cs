@@ -1,4 +1,3 @@
-// Test comment - verifying push access
 using Microsoft.EntityFrameworkCore;
 using Verifier.Application.Users;
 using Verifier.Infrastructure.Persistence;
