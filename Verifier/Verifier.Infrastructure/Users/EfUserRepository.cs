@@ -17,6 +17,8 @@ public class EfUserRepository : IUserRepository
     {
         _context.Users.Add(user);
         _context.SaveChanges();
+
+        
     }
 
     public IReadOnlyList<User> GetAll()
