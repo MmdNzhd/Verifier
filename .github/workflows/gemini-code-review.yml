@@ -1,4 +1,4 @@
-﻿name: Gemini AI Code Review
+name: Gemini AI Code Review
 
 on:
   pull_request:
@@ -12,13 +12,13 @@ jobs:
   gemini-review:
     name: Gemini Code Review
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Get changed files
         id: changed-files
         uses: tj-actions/changed-files@v41
@@ -26,81 +26,381 @@ jobs:
           files: |
             **/*.cs
             **/*.csproj
-      
+            **/*.cshtml
+            **/*.config
+            **/*.json
+            **/*.sql
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      
+          cache: 'pip'
+
       - name: Install dependencies
         run: |
           pip install google-generativeai requests
-      
+
+      - name: Read PR event
+        id: pr-info
+        run: |
+          echo "pr_number=$(cat $GITHUB_EVENT_PATH | python3 -c 'import sys, json; print(json.load(sys.stdin)[\"pull_request\"][\"number\"])')" >> $GITHUB_OUTPUT
+          echo "pr_title=$(cat $GITHUB_EVENT_PATH | python3 -c 'import sys, json; print(json.load(sys.stdin)[\"pull_request\"][\"title\"])')" >> $GITHUB_OUTPUT
+          echo "pr_author=$(cat $GITHUB_EVENT_PATH | python3 -c 'import sys, json; print(json.load(sys.stdin)[\"pull_request\"][\"user\"][\"login\"])')" >> $GITHUB_OUTPUT
+
       - name: Run Gemini Code Review
+        if: steps.changed-files.outputs.any_changed == 'true'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
+          PR_TITLE: ${{ steps.pr-info.outputs.pr_title }}
+          PR_AUTHOR: ${{ steps.pr-info.outputs.pr_author }}
         run: |
           python - <<'PYTHON_EOF'
           import os
+          import json
           import google.generativeai as genai
           import requests
-          import json
+          from datetime import datetime
 
           genai.configure(api_key=os.environ['GEMINI_API_KEY'])
-          model = genai.GenerativeModel('gemini-1.5-flash')
+          model = genai.GenerativeModel('gemini-2.5-pro')
 
           github_token = os.environ['GITHUB_TOKEN']
           repo = os.environ['GITHUB_REPOSITORY']
-          pr_number = os.environ['GITHUB_REF'].split('/')[2]
-          
+          pr_number = os.environ['PR_NUMBER']
+          pr_title = os.environ['PR_TITLE']
+          pr_author = os.environ['PR_AUTHOR']
+
           headers = {
               'Authorization': f'token {github_token}',
               'Accept': 'application/vnd.github.v3.diff'
           }
-          
+
           diff_url = f'https://api.github.com/repos/{repo}/pulls/{pr_number}'
-          response = requests.get(diff_url, headers=headers)
-          diff = response.text
+          response = requests.get(diff_url, headers=headers, timeout=30)
 
-          prompt = f"""You are an expert code reviewer for .NET/C# applications.
-          Review the following code changes and provide:
-          
-          1. **Security Issues**: Any potential security vulnerabilities
-          2. **Code Quality**: Best practices, SOLID principles, clean code
-          3. **Performance**: Potential performance improvements
-          4. **Bugs**: Potential bugs or logical errors
-          5. **Suggestions**: Specific improvement recommendations
-          
-          Be concise and actionable. Focus on important issues only.
-          
-          Code Diff:
-          ```diff
-          {diff[:8000]}
-          ```
-          
-          Provide the review in markdown format."""
+          if response.status_code != 200:
+              print(f"❌ Failed to fetch diff: {response.status_code}")
+              exit(1)
 
-          try:
-              review = model.generate_content(prompt)
-              review_text = review.text
-              
-              comment_url = f'https://api.github.com/repos/{repo}/issues/{pr_number}/comments'
-              comment_data = {
-                  'body': f"## 🤖 Gemini AI Code Review\n\n{review_text}\n\n---\n*Automated review by Gemini AI*"
-              }
-              
-              headers['Accept'] = 'application/vnd.github.v3+json'
-              headers['Content-Type'] = 'application/json'
-              
-              post_response = requests.post(comment_url, headers=headers, data=json.dumps(comment_data))
-              
-              if post_response.status_code == 201:
-                  print("✅ Gemini review posted successfully!")
-              else:
-                  print(f"❌ Failed to post review: {post_response.status_code}")
-                  
-          except Exception as e:
-              print(f"❌ Error: {str(e)}")
+          diff_content = response.text
+
+          if not diff_content.strip():
+              print("✅ No changes to review.")
+              exit(0)
+
+          MAX_CHUNK_SIZE = 450000
+          chunks = [diff_content[i:i+MAX_CHUNK_SIZE] for i in range(0, len(diff_content), MAX_CHUNK_SIZE)]
+
+          all_reviews = []
+
+          for idx, chunk in enumerate(chunks):
+              prompt = f"""You are a senior .NET Core architect and security expert with 15+ years of experience reviewing ASP.NET Core Web API applications. Perform a comprehensive, rigorous code review for the following code changes.
+
+CONTEXT:
+- Repository: {repo}
+- PR Number: {pr_number}
+- PR Title: {pr_title}
+- Author: {pr_author}
+- This is chunk {{idx + 1}} of {{len(chunks)}}
+
+REVIEW SCOPE AND DEPTH:
+Examine every line of code with extreme attention to detail. For each change, analyze:
+1. Functional correctness and edge cases
+2. Security vulnerabilities (OWASP Top 10)
+3. Performance implications
+4. Code quality and maintainability
+5. Architectural alignment
+6. Best practices compliance
+
+DETAILED CHECKLIST:
+
+## 1. SECURITY VULNERABILITIES (CRITICAL)
+
+### 1.1 Injection Attacks (OWASP #1)
+- SQL Injection: Verify ALL database queries use parameterized queries, NOT string concatenation
+- Check for: raw SQL with string interpolation, string.Format in SQL, dynamic SQL generation
+- Look for: Dapper parameters, EF Core parameterized queries, proper use of @parameters
+- Linq injection: Verify user input in Where(), FirstOrDefault() etc. is sanitized
+- Command injection: Check for Process.Start, Runtime.exec with user input
+- LDAP injection: Verify LDAP queries sanitize input
+
+### 1.2 Broken Authentication (OWASP #2)
+- Password storage: Verify PBKDF2, bcrypt, or Argon2 (NOT MD5, SHA1, unsalted hashes)
+- Verify: PasswordHasher from ASP.NET Core Identity or similar
+- Session management: Check SessionID regeneration on login, proper logout (session destruction)
+- Token security: JWT token validation, proper signing key management, short expiration
+- MFA implementation: Verify multi-factor authentication for sensitive operations
+- Brute force protection: Account lockout, exponential backoff, CAPTCHA integration
+
+### 1.3 Sensitive Data Exposure (OWASP #3)
+- Encryption at rest: Verify encryption for sensitive fields (PII, financial data)
+- HTTPS enforcement: Ensure RequireHttpsAttribute, HSTS middleware configured
+- Sensitive data in logs: Check for accidental logging of passwords, tokens, credit cards
+- Cache control: Verify no sensitive data in response caching
+- Response filtering: Ensure API responses don't expose internal data
+
+### 1.4 XML External Entities (OWASP #4)
+- XML parsing: Verify XmlReader with disabled DTD processing
+- Check for: XmlDocument.Load with untrusted sources
+- JSON deserialization: Verify safe JSON converters, no TypeNameHandling.Auto
+
+### 1.5 Broken Access Control (OWASP #5)
+- Authorization checks: Verify [Authorize] attributes on ALL protected endpoints
+- Role-based access: Check proper [Authorize(Roles="...")] usage
+- Policy-based: Verify policy definitions in AddAuthorization()
+- Parameter tampering: Verify IDOR protection - users can't access others' resources
+- Horizontal privilege escalation: Check resource ownership validation
+- Vertical privilege escalation: Verify admin-only operations are protected
+
+### 1.6 Security Misconfiguration (OWASP #6)
+- Default credentials: Verify no hardcoded passwords, API keys, connection strings
+- Debug mode: Ensure debug=false in production
+- CORS configuration: Verify explicit origin whitelisting, not AllowAny
+- Headers: Check security headers (X-Content-Type-Options, X-Frame-Options, CSP)
+- Exception handling: Verify no stack traces exposed to users
+
+### 1.7 Cross-Site Scripting (OWASP #7)
+- Output encoding: Verify @Html.Raw() not used with untrusted input
+- JavaScript encoding: Verify JSON.stringify() for data in JS
+- Cookie security: Verify HttpOnly, Secure, SameSite=Strict/Lax
+- Input validation: Server-side validation for all user input
+
+### 1.8 Insecure Deserialization (OWASP #8)
+- BinaryFormatter: Verify NOT used (deprecated, unsafe)
+- Type handling: Verify TypeNameHandling.None for JSON deserialization
+- Custom converters: Verify safe custom model binding
+
+### 1.9 Using Components with Known Vulnerabilities (OWASP #9)
+- Package vulnerabilities: Check for outdated NuGet packages with CVEs
+- Dependency versions: Verify no known vulnerable versions (check GitHub Advisory Database)
+- License compliance: Verify appropriate licenses for dependencies
+
+### 1.10 Insufficient Logging & Monitoring (OWASP #10)
+- Audit logging: Verify login attempts, failures, sensitive operations logged
+- Log format: Verify structured logging (JSON format)
+- Log storage: Verify logs are stored securely, retention policies
+- Alerting: Verify suspicious activity triggers alerts
+
+## 2. PERFORMANCE OPTIMIZATION
+
+### 2.1 Asynchronous Programming
+- Verify async/await usage for I/O operations (file, network, database)
+- Check for: .Result, .Wait(), .GetAwaiter().GetResult() (causes deadlocks)
+- Verify: CancellationToken propagation through all layers
+- Check Task.WhenAll for parallel operations
+- Verify: ConfigureAwait(false) for library code
+
+### 2.2 Database Performance
+- N+1 queries: Check for lazy loading causing multiple round trips
+- Verify: Include() for navigation properties when needed
+- Check AsNoTracking() for read-only scenarios
+- Verify: Proper indexing considerations
+- Check: Query optimization (Select only needed columns)
+- Review: Pagination for large datasets (Skip/Take)
+
+### 2.3 Caching Strategies
+- Verify: MemoryCache or IDistributedCache implementation
+- Check: Cache invalidation logic
+- Verify: Cache key uniqueness, no collisions
+- Review: Cache expiration policies
+- Check: Large object caching (memory pressure)
+
+### 2.4 Resource Management
+- IDisposable pattern: Verify proper disposal, using statements
+- Check: DbContext lifetime management (Scoped, not Singleton)
+- Verify: HttpClientFactory usage (not new HttpClient())
+- Review: Connection pooling configuration
+- Check: File handle disposal
+
+### 2.5 Memory Management
+- Review: Large object allocations (85KB+)
+- Check: String concatenation in loops (use StringBuilder)
+- Verify: Boxing/unboxing minimized
+- Review: Object pooling for expensive resources
+
+## 3. CODE QUALITY & BEST PRACTICES
+
+### 3.1 SOLID Principles
+- Single Responsibility: Each class has one reason to change
+- Open/Closed: Open for extension, closed for modification
+- Liskov Substitution: Subtypes substitutable for base types
+- Interface Segregation: Small, focused interfaces
+- Dependency Inversion: Depend on abstractions, not concretions
+
+### 3.2 Exception Handling
+- Verify: Specific exception types caught (NOT catch(Exception))
+- Check: Meaningful exception messages for debugging
+- Verify: Exception logging without sensitive data
+- Check: Custom exception types for domain errors
+- Verify: Finally blocks for cleanup
+- Review: Exception wrapping (inner exceptions preserved)
+
+### 3.3 Dependency Injection
+- Verify: Constructor injection preferred over property injection
+- Check: DI lifetime matching (Singleton, Scoped, Transient)
+- Verify: No service location pattern
+- Check: Proper service registration order
+- Verify: Avoid captable dependencies in services
+
+### 3.4 API Design
+- Verify: RESTful naming conventions (GET, POST, PUT, DELETE)
+- Check: HTTP status codes correctness (200, 201, 400, 404, 500, etc.)
+- Verify: Proper route attributes ([HttpGet("{{id}}")])
+- Check: Action result types (IActionResult, ActionResult<T>)
+- Verify: API versioning (route header, or query string)
+- Check: Consistent response models
+
+### 3.5 Input Validation
+- Verify: Data Annotations ([Required], [MaxLength], [Range], etc.)
+- Check: FluentValidation for complex validation
+- Verify: ModelState.IsValid checks
+- Check: Custom validation attributes
+- Verify: Server-side validation (NOT just client-side)
+
+### 3.6 Logging & Telemetry
+- Verify: Structured logging (Serilog, NLog with JSON)
+- Check: Correlation IDs for request tracing
+- Verify: Log levels appropriate (Debug, Info, Warning, Error)
+- Check: Sensitive data NOT logged
+- Verify: Performance logging for slow operations
+
+### 3.7 Configuration Management
+- Verify: appsettings.json properly structured
+- Check: Environment-specific configurations (Development, Staging, Production)
+- Verify: Azure Key Vault for secrets
+- Check: Options pattern (IOptions, IOptionsSnapshot)
+- Verify: Configuration validation
+- Check: Connection string security
+
+### 3.8 Code Organization
+- Verify: Clear namespace structure
+- Check: Consistent folder organization
+- Verify: Class and method naming conventions
+- Check: File organization (one class per file typically)
+- Verify: XML documentation for public APIs
+- Check: Comments for complex logic (NOT obvious code)
+
+### 3.9 Anti-Patterns Detection
+- God Objects: Classes with too many responsibilities
+- Feature Envy: Methods accessing other classes' data excessively
+- Shotgun Surgery: One change requiring many scattered modifications
+- Duplicate Code: Repeated logic needing refactoring
+- Magic Numbers/Strings: Hardcoded values needing constants
+- Deep Nesting: Excessive if-else or switch statements
+- Primitive Obsession: Using primitives instead of domain types
+- Temporal Coupling: Order-dependent method calls
+
+### 3.10 Testing Considerations
+- Verify: Unit test coverage for new logic
+- Check: Integration tests for data access
+- Verify: Mock dependencies properly
+- Check: Test isolation
+- Verify: Edge cases and boundary conditions tested
+
+## OUTPUT FORMAT:
+
+For each issue found, provide:
+
+### 🔴 Critical (Must Fix Before Merge)
+**File**: `path/to/file.cs`
+**Line**: 123
+**Issue**: Clear description of the security/quality issue
+**Code**:
+```csharp
+// BEFORE (problematic code)
+[problematic code]
+
+// AFTER (suggested fix)
+[suggested fix]
+```
+**Reason**: Why this is critical
+
+### 🟠 High (Should Fix)
+**File**: `path/to/file.cs`
+**Line**: 123
+**Issue**: Description
+**Code**: Before/After comparison
+**Reason**: Impact and priority
+
+### 🟡 Medium (Consider Fixing)
+**File**: `path/to/file.cs`
+**Line**: 123
+**Issue**: Description
+**Suggested Fix**: Brief recommendation
+
+### ✅ Positive Findings
+Highlight good practices observed in the code (praise where due)
+
+### 📊 Summary Statistics
+- Total issues found
+- Critical: X
+- High: Y
+- Medium: Z
+
+Keep the review professional, constructive, and actionable. Focus on what matters most for production-quality .NET Core Web APIs.
+
+Code Diff (chunk {{idx + 1}}/{{len(chunks)}}):
+```{diff}}
+{chunk}
+```
+"""
+
+              try:
+                  generation_config = {
+                      "temperature": 0.1,
+                      "top_p": 0.9,
+                      "top_k": 64,
+                      "max_output_tokens": 8192
+                  }
+
+                  review = model.generate_content(
+                      prompt,
+                      generation_config=generation_config
+                  )
+
+                  if review.text:
+                      all_reviews.append(f"## 📝 Review Section {{idx + 1}} of {{len(chunks)}}\n\n{{review.text}}")
+                  else:
+                      all_reviews.append(f"## 📝 Review Section {{idx + 1}} of {{len(chunks)}}\n\n*No issues found in this section*")
+
+              except Exception as e:
+                  all_reviews.append(f"## 📝 Review Section {{idx + 1}} of {{len(chunks)}}\n\n**Error**: Unable to review this section: {{str(e)}}")
+
+          # Generate final summary
+          final_review = "\n\n---\n\n".join(all_reviews)
+
+          # Create review comment
+          review_url = f'https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}/reviews'
+          review_data = {{
+              'body': f"## 🤖 Gemini AI Code Review (gemini-2.5-pro)\n\n**PR**: #{{pr_number}} - {{pr_title}}\n**Author**: {{pr_author}}\n**Date**: {{datetime.now().strftime('%Y-%m-%d %H:%M UTC')}}\n\n---\n\n{{final_review}}\n\n---\n\n*🤖 Automated review by Gemini AI | Powered by Gemini 2.5 Pro*",
+              'event': 'COMMENT'
+          }}
+
+          review_headers = {{
+              'Authorization': f'token {{github_token}}',
+              'Accept': 'application/vnd.github.v3+json',
+              'Content-Type': 'application/json'
+          }}
+
+          post_response = requests.post(review_url, headers=review_headers,
+                                        data=json.dumps(review_data), timeout=60)
+
+          if post_response.status_code == 200:
+              print("✅ Gemini review posted successfully!")
+          else:
+              print(f"❌ Failed to post review: {{post_response.status_code}}")
+              print(f"Response: {{post_response.text}}")
               exit(1)
           PYTHON_EOF
+
+      - name: No relevant changes
+        if: steps.changed-files.outputs.any_changed != 'true'
+        run: echo "No .cs, .cshtml, .config, .json, or .sql files were changed in this PR."
+
+      - name: Review Summary
+        if: always()
+        run: |
+          echo "Review workflow completed"
