@@ -1,0 +1,30 @@
+@baseUrl = http://localhost:5222
+@phoneNumber = 09123456781
+@otpCode = 247295
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6ImEyNjdmZWMzLWY4ZTctNGViMi04ZTZhLWE5NDMzNGY5OTFjYyIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL21vYmlsZXBob25lIjoiMDkxMjM0NTY3ODEiLCJleHAiOjE3NjcyNjMyNTQsImlzcyI6IlZlcmlmaWVyLkFwaSIsImF1ZCI6IlZlcmlmaWVyLkNsaWVudCJ9.JlNRzo1v-KrAWkanvMtUauAF8x5p296nmeiIlOJxff0
+
+### Send OTP
+POST {{baseUrl}}/api/auth/send-otp
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneNumber}}"
+}
+
+###
+
+### Verify OTP
+POST {{baseUrl}}/api/auth/verify-otp
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneNumber}}",
+  "code": "{{otpCode}}"
+}
+
+###
+
+### Get current user's profile (requires Authorization)
+GET {{baseUrl}}/api/profile/me
+Authorization: Bearer {{token}}
+Accept: application/json
