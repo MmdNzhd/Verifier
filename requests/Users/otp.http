@@ -1,0 +1,22 @@
+@baseUrl = http://localhost:5222
+@phoneNumber = 09123456781
+@otpCode = 926828
+
+### Send OTP
+POST {{baseUrl}}/api/auth/send-otp
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneNumber}}"
+}
+
+###
+
+### Verify OTP
+POST {{baseUrl}}/api/auth/verify-otp
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneNumber}}",
+  "code": "{{otpCode}}"
+}

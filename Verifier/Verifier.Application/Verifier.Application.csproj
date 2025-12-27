@@ -2,7 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Verifier.Domain\Verifier.Domain.csproj" />
-    <ProjectReference Include="..\Verifier.Contracts\Verifier.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -16,7 +17,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Verifier.Application\Verifier.Application.csproj" />
-    <ProjectReference Include="..\Verifier.Contracts\Verifier.Contracts.csproj" />
     <ProjectReference Include="..\Verifier.Infrastructure\Verifier.Infrastructure.csproj" />
   </ItemGroup>
 

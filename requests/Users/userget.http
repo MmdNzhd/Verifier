@@ -1,0 +1,2 @@
+@host = http://localhost:5222
+Get {{host}}/api/users

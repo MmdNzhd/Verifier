@@ -13,8 +13,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Verifier.Domain", "Verifier
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Verifier.Infrastructure", "Verifier\Verifier.Infrastructure\Verifier.Infrastructure.csproj", "{5C9FDDF6-DB7A-43C3-A763-CD4FF2E1306E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Verifier.Contracts", "Verifier\Verifier.Contracts\Verifier.Contracts.csproj", "{D21865AD-FB29-4263-B592-A94BE141A28C}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -73,18 +71,6 @@ Global
 		{5C9FDDF6-DB7A-43C3-A763-CD4FF2E1306E}.Release|x64.Build.0 = Release|Any CPU
 		{5C9FDDF6-DB7A-43C3-A763-CD4FF2E1306E}.Release|x86.ActiveCfg = Release|Any CPU
 		{5C9FDDF6-DB7A-43C3-A763-CD4FF2E1306E}.Release|x86.Build.0 = Release|Any CPU
-		{D21865AD-FB29-4263-B592-A94BE141A28C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D21865AD-FB29-4263-B592-A94BE141A28C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D21865AD-FB29-4263-B592-A94BE141A28C}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{D21865AD-FB29-4263-B592-A94BE141A28C}.Debug|x64.Build.0 = Debug|Any CPU
-		{D21865AD-FB29-4263-B592-A94BE141A28C}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{D21865AD-FB29-4263-B592-A94BE141A28C}.Debug|x86.Build.0 = Debug|Any CPU
-		{D21865AD-FB29-4263-B592-A94BE141A28C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D21865AD-FB29-4263-B592-A94BE141A28C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D21865AD-FB29-4263-B592-A94BE141A28C}.Release|x64.ActiveCfg = Release|Any CPU
-		{D21865AD-FB29-4263-B592-A94BE141A28C}.Release|x64.Build.0 = Release|Any CPU
-		{D21865AD-FB29-4263-B592-A94BE141A28C}.Release|x86.ActiveCfg = Release|Any CPU
-		{D21865AD-FB29-4263-B592-A94BE141A28C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -94,6 +80,5 @@ Global
 		{4522F4B2-5A7B-45ED-ACC4-1F8FB084160B} = {0D85E2E0-13FF-4C01-BC04-C67994518D92}
 		{1215C1ED-AAA3-4D0A-B0B0-165B2C750D0B} = {0D85E2E0-13FF-4C01-BC04-C67994518D92}
 		{5C9FDDF6-DB7A-43C3-A763-CD4FF2E1306E} = {0D85E2E0-13FF-4C01-BC04-C67994518D92}
-		{D21865AD-FB29-4263-B592-A94BE141A28C} = {0D85E2E0-13FF-4C01-BC04-C67994518D92}
 	EndGlobalSection
 EndGlobal
